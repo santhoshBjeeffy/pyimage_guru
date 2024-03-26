@@ -1,0 +1,50 @@
+import cv2
+import albumentations as A
+import os
+import numpy as np
+
+def augment_and_save(input_dir_images, input_dir_masks, output_dir_images, output_dir_masks, num_augmentations=5):
+    # Ensure output directories exist
+    os.makedirs(output_dir_images, exist_ok=True)
+    os.makedirs(output_dir_masks, exist_ok=True)
+
+    # Define an augmentation pipeline
+    augmentation_pipeline = A.Compose([
+        A.Rotate(limit=40, p=0.5),
+        A.HorizontalFlip(p=0.5),
+        A.RandomScale(scale_limit=0.1, p=0.5),
+        A.RandomBrightnessContrast(brightness_limit=0.2, contrast_limit=0.2, p=0.5),
+        A.GaussNoise(var_limit=(10.0, 50.0), p=0.5)
+    ], additional_targets={'mask': 'image'})
+
+    # Process each file in the input images directory
+    for filename in os.listdir(input_dir_images):
+        if filename.endswith('.png'):
+            image_path = os.path.join(input_dir_images, filename)
+            mask_path = os.path.join(input_dir_masks, filename)  # Masks share the same naming convention
+
+            # Read the image and mask
+            image = cv2.imread(image_path)
+            mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)  # Assuming masks are grayscale
+
+            # Apply augmentations multiple times
+            for i in range(num_augmentations):
+                augmented = augmentation_pipeline(image=image, mask=mask)
+                image_augmented = augmented['image']
+                mask_augmented = augmented['mask']
+
+                # Construct augmented file names
+                augmented_image_filename = f"{filename.split('.')[0]}_aug_{i}.png"
+                augmented_mask_filename = f"{filename.split('.')[0]}_aug_{i}.png"
+
+                # Save augmented images and masks
+                cv2.imwrite(os.path.join(output_dir_images, augmented_image_filename), image_augmented)
+                cv2.imwrite(os.path.join(output_dir_masks, augmented_mask_filename), mask_augmented)
+
+if __name__ == "__main__":
+    input_dir_images = './images/'
+    input_dir_masks = './masks/'
+    output_dir_images = './augmented_images/'
+    output_dir_masks = './augmented_masks/'
+
+    augment_and_save(input_dir_images, input_dir_masks, output_dir_images, output_dir_masks)
